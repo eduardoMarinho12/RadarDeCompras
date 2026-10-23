@@ -38,7 +38,7 @@ public class AnaliseController {
     public Map<String, Object> contratacoes() throws IOException {
         List<Map<String, String>> rows = new ArrayList<>();
         List<Map<String, Object>> fontes = new ArrayList<>();
-        for (String file : List.of("contratacoesModalidadeTres.csv", "contratacoesModalidadeSeis.csv", "contratacoesModalidadeSete.csv")) {
+        for (String file : List.of("contratacoesModalidadeTres.csv", "contratacoesModalidadeCinco.csv.csv", "contratacoesModalidadeSeis.csv", "contratacoesModalidadeSete.csv")) {
             Path path = dataDir.resolve(file);
             if (!Files.exists(path)) continue;
             String content = Files.readString(path, StandardCharsets.UTF_8).replace("\uFEFF", "");
