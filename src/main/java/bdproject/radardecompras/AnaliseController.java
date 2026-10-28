@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 @RestController
 public class AnaliseController {
@@ -38,9 +39,15 @@ public class AnaliseController {
     public Map<String, Object> contratacoes() throws IOException {
         List<Map<String, String>> rows = new ArrayList<>();
         List<Map<String, Object>> fontes = new ArrayList<>();
-        for (String file : List.of("contratacoesModalidadeTres.csv", "contratacoesModalidadeSeis.csv", "contratacoesModalidadeSete.csv")) {
-            Path path = dataDir.resolve(file);
-            if (!Files.exists(path)) continue;
+        if (!Files.isDirectory(dataDir)) return Map.of("registros", rows, "fontes", fontes);
+        List<Path> files;
+        try (Stream<Path> paths = Files.list(dataDir)) {
+            files = paths.filter(path -> path.getFileName().toString().startsWith("contratacoesModalidade")
+                            && path.getFileName().toString().toLowerCase().endsWith(".csv"))
+                    .sorted().toList();
+        }
+        for (Path path : files) {
+            String file = path.getFileName().toString();
             String content = Files.readString(path, StandardCharsets.UTF_8).replace("\uFEFF", "");
             int first = 0;
             while (first < content.length() && Character.isWhitespace(content.charAt(first))) first++;
@@ -54,8 +61,13 @@ public class AnaliseController {
                 List<List<String>> records = parseCsv(content);
                 if (!records.isEmpty()) {
                     List<String> headers = records.get(0);
+                    int totalIndex = headers.indexOf("totalRegistros");
                     for (int i = 1; i < records.size(); i++) {
                         List<String> values = records.get(i);
+                        if (i == 1 && totalIndex >= 0 && totalIndex < values.size()) {
+                            try { expected = Long.parseLong(values.get(totalIndex).trim()); }
+                            catch (NumberFormatException ignored) { }
+                        }
                         Map<String, String> row = new LinkedHashMap<>();
                         for (int c = 0; c < headers.size(); c++) {
                             String key = headers.get(c).replaceFirst("^resultado__", "");

@@ -1,10 +1,10 @@
 # Radar de Compras Públicas
 
-Aplicação Java/Spring Boot que lê os três arquivos em `contratacoes/`, analisa a amostra e popula o banco relacional PostgreSQL. A camada de leitura aceita arquivos JSON envelopados mesmo quando têm extensão `.csv`, além do CSV achatado.
+Aplicação Java/Spring Boot que lê todos os arquivos `contratacoesModalidade*.csv` em `contratacoes/`, analisa os registros e popula o banco relacional PostgreSQL. A camada de leitura aceita arquivos JSON envelopados mesmo quando têm extensão `.csv`, além do CSV achatado.
 
 ## Executar
 
-Requer Java 21 e um banco PostgreSQL `radar_compras` disponível em `localhost:5883`. A conexão pode ser alterada por `DB_URL`, `DB_USER` e `DB_PASSWORD`. Na raiz do projeto:
+Requer Java 21 e um banco PostgreSQL `radar_compras` disponível em `localhost:5432`. A conexão pode ser alterada por `DB_URL`, `DB_USER` e `DB_PASSWORD`. Na raiz do projeto:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
@@ -14,10 +14,10 @@ Abra <http://localhost:8080>. Na inicialização, `schema.sql` cria as tabelas s
 
 ## Esquema original
 
-Os três arquivos representam registros de contratação do PNCP, mas chegam em duas estruturas:
+Os arquivos representam registros de contratação do PNCP, mas chegam em duas estruturas:
 
-- Modalidades seis e sete: JSON com `resultado` (lista de contratações) e metadados de paginação (`totalRegistros`, `totalPaginas`, `paginasRestantes`). Cada resultado contém campos planos e grupos de órgão/unidade, localização, modalidade, disputa, orçamento sigiloso, situação, amparo legal, valores, datas e objeto.
-- Modalidade três: CSV achatado, com prefixo `resultado__` nos campos do registro e metadados de paginação no fim. O leitor tira esse prefixo para alinhar as três fontes.
+- JSON: objeto com `resultado` (lista de contratações) e metadados de paginação (`totalRegistros`, `totalPaginas`, `paginasRestantes`). Cada resultado contém campos planos e grupos de órgão/unidade, localização, modalidade, disputa, orçamento sigiloso, situação, amparo legal, valores, datas e objeto.
+- CSV achatado: colunas com prefixo `resultado__` nos campos do registro e metadados de paginação no fim. O leitor tira esse prefixo para alinhar as fontes.
 
 `numeroControlePNCP` é a chave de negócio da contratação. `orgaoEntidadeCnpj`, códigos da unidade, `unidadeOrgaoCodigoIbge` e códigos das classificações identificam entidades e domínios. O original é preservado em memória para auditoria e a versão normalizada mantém o arquivo de origem.
 
@@ -49,6 +49,6 @@ Na amostra, `orcamentoSigilosoCodigo = 1` aparece junto de `orcamentoSigilosoDes
 
 ## Limite da análise atual
 
-Há 10 linhas por arquivo (30 no total). Os JSON das modalidades seis e sete informam 85.041 e 51.114 registros na consulta, mas esses registros não estão completos nos arquivos locais. As métricas e a carga relacional descrevem somente as linhas disponíveis; não representam o universo PNCP.
+Os arquivos locais são uma extração parcial das consultas do PNCP. O painel compara as linhas presentes com os totais informados pela fonte e rotula as métricas como amostra; elas não representam necessariamente o universo PNCP.
 
-O painel apresenta compras com/sem sigilo, licitações por UF, alertas por UF, nulos em campos relevantes, exemplos de registros, esquema de origem e contagens da carga relacional. Com o conjunto atual, um valor estimado zero deve ser revisado contra a fonte; nulos de sub-rogação e abertura podem ser opcionais. A ausência desses dados não deve ser apresentada como irregularidade.
+O painel apresenta compras com/sem sigilo, licitações por UF, alertas por UF, nulos em campos relevantes e uma legenda de interpretação. O detalhamento dos alertas mostra campo, valor observado, regra, ação sugerida e classificação; permite busca, filtro entre inconsistências e revisão manual e exportação CSV. Com o conjunto atual, um valor estimado zero deve ser revisado contra a fonte; nulos de sub-rogação e abertura podem ser opcionais. A ausência desses dados não deve ser apresentada como irregularidade.

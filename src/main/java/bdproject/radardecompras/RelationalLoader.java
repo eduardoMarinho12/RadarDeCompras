@@ -3,6 +3,7 @@ package bdproject.radardecompras;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -20,8 +21,12 @@ public class RelationalLoader implements CommandLineRunner {
     private final AnaliseController source;
     public RelationalLoader(JdbcTemplate jdbc, AnaliseController source) { this.jdbc=jdbc; this.source=source; }
 
-    @Override public void run(String... args) throws Exception {
+    @Override @Transactional public void run(String... args) throws Exception {
         List<Map<String,String>> rows=(List<Map<String,String>>)source.contratacoes().get("registros");
+        if (rows.isEmpty()) {
+            System.err.println("Carga do PostgreSQL ignorada: nenhum registro foi lido dos arquivos contratacoesModalidade*.csv.");
+            return;
+        }
         jdbc.update("DELETE FROM problema_dado"); jdbc.update("DELETE FROM contratacao"); jdbc.update("DELETE FROM unidade"); jdbc.update("DELETE FROM municipio"); jdbc.update("DELETE FROM orgao");
         jdbc.update("DELETE FROM modalidade"); jdbc.update("DELETE FROM situacao_compra"); jdbc.update("DELETE FROM modo_disputa"); jdbc.update("DELETE FROM sigilo"); jdbc.update("DELETE FROM amparo_legal");
         STATES.forEach((uf,nome)->jdbc.update("INSERT INTO estado(uf,nome) VALUES (?,?) ON CONFLICT (uf) DO UPDATE SET nome=EXCLUDED.nome",uf,nome));
@@ -60,6 +65,8 @@ public class RelationalLoader implements CommandLineRunner {
         if(!found.isEmpty())return found.get(0);
         return jdbc.queryForObject("INSERT INTO unidade(codigo_unidade,nome,orgao_cnpj,municipio_id) VALUES (?,?,?,?) RETURNING id",Long.class,nn(code),nn(name),nn(cnpj),city);
     }
+
+
     private String lookup(String table,String codeField,String nameField,Map<String,String> r){String code=v(r,codeField),name=v(r,nameField);if(name.isBlank())return null;if(code.isBlank())code="SEM_CODIGO:"+name;jdbc.update("INSERT INTO "+table+"(codigo,nome) VALUES (?,?) ON CONFLICT (codigo) DO UPDATE SET nome=EXCLUDED.nome",code,name);return code;}
     private List<String> issues(Map<String,String> r){List<String> out=new ArrayList<>();if(v(r,"numeroControlePNCP").isBlank())out.add("IDENTIFICADOR: Número PNCP ausente");if(!STATES.containsKey(v(r,"unidadeOrgaoUfSigla").toUpperCase()))out.add("UF: UF ausente ou inválida");String code=v(r,"orcamentoSigilosoCodigo");if(v(r,"orcamentoSigilosoDescricao").isBlank()||(!code.equals("1")&&!code.equals("2")))out.add("SIGILO: Classificação ausente ou código inválido");LocalDateTime pub=date(v(r,"dataPublicacaoPncp")),open=date(v(r,"dataAberturaPropostaPncp")),end=date(v(r,"dataEncerramentoPropostaPncp"));if((pub!=null&&open!=null&&open.isBefore(pub))||(open!=null&&end!=null&&end.isBefore(open)))out.add("DATAS: Datas fora de ordem");BigDecimal amount=decimal(v(r,"valorTotalEstimado"));if(amount!=null&&amount.signum()==0)out.add("VALOR_ZERO: Valor estimado igual a zero; revisar com a fonte");return out;}
     private void seedSynonym(){jdbc.update("INSERT INTO conceito_termo(conceito,descricao) VALUES (?,?) ON CONFLICT (conceito) DO UPDATE SET descricao=EXCLUDED.descricao","ORCAMENTO_SEM_SIGILO","Orçamento declarado sem sigilo");Long id=jdbc.queryForObject("SELECT id FROM conceito_termo WHERE conceito=?",Long.class,"ORCAMENTO_SEM_SIGILO");jdbc.update("DELETE FROM termo_alias WHERE conceito_id=?",id);jdbc.update("INSERT INTO termo_alias(conceito_id,termo_origem,tipo,nivel_completude,campo_origem,evidencia) VALUES (?,?,?,?,?,?)",id,"1","CÓDIGO","CODIFICADO","orcamentoSigilosoCodigo","Código 1 observado associado à descrição Compra sem sigilo");jdbc.update("INSERT INTO termo_alias(conceito_id,termo_origem,tipo,nivel_completude,campo_origem,evidencia) VALUES (?,?,?,?,?,?)",id,"Compra sem sigilo","DESCRIÇÃO","ROTULADO","orcamentoSigilosoDescricao","Descrição observada associada ao código 1");}
